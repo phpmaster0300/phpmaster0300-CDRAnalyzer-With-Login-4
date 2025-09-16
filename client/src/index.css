@@ -1,0 +1,293 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0 0% 95.7%);
+  --foreground: hsl(0 0% 15.1%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(0 0% 15.1%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(0 0% 15.1%);
+  --primary: hsl(215.7 95.3% 52.4%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(0 0% 22.4%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --muted: hsl(0 0% 90%);
+  --muted-foreground: hsl(0 0% 15.1%);
+  --accent: hsl(131.1 100% 31.4%);
+  --accent-foreground: hsl(0 0% 100%);
+  --destructive: hsl(354.8 84.1% 43.5%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsl(0 0% 87.8%);
+  --input: hsl(0 0% 97.3%);
+  --ring: hsl(215.7 95.3% 52.4%);
+  --chart-1: hsl(215.7 95.3% 52.4%);
+  --chart-2: hsl(131.1 100% 31.4%);
+  --chart-3: hsl(48.3 95.5% 53.7%);
+  --chart-4: hsl(147.1 78.5% 41.9%);
+  --chart-5: hsl(341.5 75.2% 51%);
+  --sidebar: hsl(0 0% 95.7%);
+  --sidebar-foreground: hsl(0 0% 15.1%);
+  --sidebar-primary: hsl(215.7 95.3% 52.4%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(0 0% 90%);
+  --sidebar-accent-foreground: hsl(215.7 95.3% 52.4%);
+  --sidebar-border: hsl(0 0% 87.8%);
+  --sidebar-ring: hsl(215.7 95.3% 52.4%);
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius: 1.3rem;
+  --warning: hsl(48.3 95.5% 53.7%);
+  --danger: hsl(354.8 84.1% 43.5%);
+  --surface: hsl(0 0% 100%);
+  --gray-90: hsl(0 0% 15.1%);
+  --gray-80: hsl(0 0% 22.4%);
+  --gray-70: hsl(0 0% 32.2%);
+  --gray-60: hsl(0 0% 43.5%);
+  --gray-50: hsl(0 0% 55.3%);
+  --gray-40: hsl(0 0% 65.9%);
+  --gray-30: hsl(0 0% 77.6%);
+  --gray-20: hsl(0 0% 87.8%);
+  --gray-10: hsl(0 0% 95.7%);
+}
+
+.dark {
+  --background: hsl(0 0% 0%);
+  --foreground: hsl(0 0% 91.2%);
+  --card: hsl(228 9.8% 10%);
+  --card-foreground: hsl(0 0% 85.1%);
+  --popover: hsl(0 0% 0%);
+  --popover-foreground: hsl(0 0% 91.2%);
+  --primary: hsl(215.7 95.3% 52.4%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(195 15.4% 94.9%);
+  --secondary-foreground: hsl(0 0% 15.1%);
+  --muted: hsl(0 0% 9.4%);
+  --muted-foreground: hsl(210 3.4% 46.3%);
+  --accent: hsl(131.1 100% 31.4%);
+  --accent-foreground: hsl(0 0% 100%);
+  --destructive: hsl(354.8 84.1% 43.5%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsl(210 5.3% 14.9%);
+  --input: hsl(207.7 27.7% 18.4%);
+  --ring: hsl(215.7 95.3% 52.4%);
+  --chart-1: hsl(215.7 95.3% 52.4%);
+  --chart-2: hsl(131.1 100% 31.4%);
+  --chart-3: hsl(48.3 95.5% 53.7%);
+  --chart-4: hsl(147.1 78.5% 41.9%);
+  --chart-5: hsl(341.5 75.2% 51%);
+  --sidebar: hsl(228 9.8% 10%);
+  --sidebar-foreground: hsl(0 0% 85.1%);
+  --sidebar-primary: hsl(215.7 95.3% 52.4%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(205.7 70% 7.8%);
+  --sidebar-accent-foreground: hsl(215.7 95.3% 52.4%);
+  --sidebar-border: hsl(205.7 15.8% 26.1%);
+  --sidebar-ring: hsl(215.7 95.3% 52.4%);
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius: 1.3rem;
+  --warning: hsl(48.3 95.5% 53.7%);
+  --danger: hsl(354.8 84.1% 43.5%);
+  --surface: hsl(228 9.8% 10%);
+  --gray-90: hsl(0 0% 15.1%);
+  --gray-80: hsl(0 0% 22.4%);
+  --gray-70: hsl(0 0% 32.2%);
+  --gray-60: hsl(0 0% 43.5%);
+  --gray-50: hsl(0 0% 55.3%);
+  --gray-40: hsl(0 0% 65.9%);
+  --gray-30: hsl(0 0% 77.6%);
+  --gray-20: hsl(0 0% 87.8%);
+  --gray-10: hsl(0 0% 95.7%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+
+  .text-primary {
+    color: var(--primary);
+  }
+
+  .text-accent {
+    color: var(--accent);
+  }
+
+  .text-warning {
+    color: var(--warning);
+  }
+
+  .text-danger {
+    color: var(--danger);
+  }
+
+  .text-surface {
+    color: var(--surface);
+  }
+
+  .text-gray-90 {
+    color: var(--gray-90);
+  }
+
+  .text-gray-80 {
+    color: var(--gray-80);
+  }
+
+  .text-gray-70 {
+    color: var(--gray-70);
+  }
+
+  .text-gray-60 {
+    color: var(--gray-60);
+  }
+
+  .text-gray-50 {
+    color: var(--gray-50);
+  }
+
+  .text-gray-40 {
+    color: var(--gray-40);
+  }
+
+  .text-gray-30 {
+    color: var(--gray-30);
+  }
+
+  .text-gray-20 {
+    color: var(--gray-20);
+  }
+
+  .text-gray-10 {
+    color: var(--gray-10);
+  }
+
+  .bg-primary {
+    background-color: var(--primary);
+  }
+
+  .bg-accent {
+    background-color: var(--accent);
+  }
+
+  .bg-warning {
+    background-color: var(--warning);
+  }
+
+  .bg-danger {
+    background-color: var(--danger);
+  }
+
+  .bg-surface {
+    background-color: var(--surface);
+  }
+
+  .bg-gray-90 {
+    background-color: var(--gray-90);
+  }
+
+  .bg-gray-80 {
+    background-color: var(--gray-80);
+  }
+
+  .bg-gray-70 {
+    background-color: var(--gray-70);
+  }
+
+  .bg-gray-60 {
+    background-color: var(--gray-60);
+  }
+
+  .bg-gray-50 {
+    background-color: var(--gray-50);
+  }
+
+  .bg-gray-40 {
+    background-color: var(--gray-40);
+  }
+
+  .bg-gray-30 {
+    background-color: var(--gray-30);
+  }
+
+  .bg-gray-20 {
+    background-color: var(--gray-20);
+  }
+
+  .bg-gray-10 {
+    background-color: var(--gray-10);
+  }
+
+  .border-primary {
+    border-color: var(--primary);
+  }
+
+  .border-accent {
+    border-color: var(--accent);
+  }
+
+  .border-warning {
+    border-color: var(--warning);
+  }
+
+  .border-danger {
+    border-color: var(--danger);
+  }
+
+  .border-gray-90 {
+    border-color: var(--gray-90);
+  }
+
+  .border-gray-80 {
+    border-color: var(--gray-80);
+  }
+
+  .border-gray-70 {
+    border-color: var(--gray-70);
+  }
+
+  .border-gray-60 {
+    border-color: var(--gray-60);
+  }
+
+  .border-gray-50 {
+    border-color: var(--gray-50);
+  }
+
+  .border-gray-40 {
+    border-color: var(--gray-40);
+  }
+
+  .border-gray-30 {
+    border-color: var(--gray-30);
+  }
+
+  .border-gray-20 {
+    border-color: var(--gray-20);
+  }
+
+  .border-gray-10 {
+    border-color: var(--gray-10);
+  }
+
+  .hover\:bg-green-600:hover {
+    background-color: hsl(142.1 76.2% 36.3%);
+  }
+
+  .hover\:bg-blue-700:hover {
+    background-color: hsl(221.2 83.2% 53.3%);
+  }
+
+  .hover\:text-blue-700:hover {
+    color: hsl(221.2 83.2% 53.3%);
+  }
+}

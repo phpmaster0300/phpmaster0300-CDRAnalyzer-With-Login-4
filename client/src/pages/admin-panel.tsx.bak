@@ -1,0 +1,1683 @@
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { 
+  Users, 
+  Search, 
+  Edit, 
+  Trash2, 
+  Shield, 
+  ShieldOff, 
+  Download, 
+  Upload, 
+  Calendar as CalendarIcon,
+  Smartphone,
+  Activity,
+  Eye,
+  UserCheck,
+  UserX,
+  Settings,
+  FileText,
+  Plus,
+  LogOut,
+  Home,
+  MessageSquare,
+  Clock,
+  UserPlus,
+  BarChart3,
+  TrendingUp,
+  Bell,
+  Sliders,
+  Globe
+} from "lucide-react";
+import RegistrationSystem from "@/components/RegistrationSystem";
+
+interface SystemSettings {
+  registrationEnabled: boolean;
+  requireApproval: boolean;
+  defaultExpiryDays: number;
+  defaultDeviceLimit: number;
+  
+  // Custom SMS Messages
+  successMessage: string;        // Message for successful auto-approved registration
+  pendingMessage: string;        // Message for pending approval registration
+  rejectionMessage: string;      // Message for rejected users
+  blockMessage: string;          // Message for blocked users
+  expiryMessage: string;         // Message for expired users
+  
+  // Admin settings
+  maintenanceMode: boolean;
+  adminEmail: string;
+  adminPassword: string;
+}
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  city: string;
+  whatsappNumber: string;
+  password: string;
+  createdAt: string;
+  isBlocked?: boolean;
+  expiryDate?: string;
+  deviceLimit?: number;
+  loginCount?: number;
+  lastLogin?: string;
+  deviceCount?: number;
+  isAdmin?: boolean;
+  isApproved?: boolean;
+  approvedAt?: string;
+  approvedBy?: string;
+}
+
+interface UserActivity {
+  id: string;
+  userId: string;
+  action: string;
+  timestamp: string;
+  details: string;
+  ipAddress?: string;
+  deviceInfo?: string;
+}
+
+export default function AdminPanel() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<User[]>([]);
+  const [filteredPendingUsers, setFilteredPendingUsers] = useState<User[]>([]);
+  const [rejectedUsers, setRejectedUsers] = useState<User[]>([]);
+  const [filteredRejectedUsers, setFilteredRejectedUsers] = useState<User[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [pendingSearchTerm, setPendingSearchTerm] = useState("");
+  const [rejectedSearchTerm, setRejectedSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [selectedUserActivity, setSelectedUserActivity] = useState<UserActivity[]>([]);
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [expiryDate, setExpiryDate] = useState<Date>();
+  const [isAdminCredentialsModalOpen, setIsAdminCredentialsModalOpen] = useState(false);
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [newAdminPassword, setNewAdminPassword] = useState("");
+  const [confirmAdminPassword, setConfirmAdminPassword] = useState("");
+  const [currentAdminPassword, setCurrentAdminPassword] = useState("");
+  const [systemSettings, setSystemSettings] = useState<SystemSettings>({
+    registrationEnabled: true,
+    requireApproval: false,
+    defaultExpiryDays: 365,
+    defaultDeviceLimit: 3,
+    
+    // Default SMS Messages
+    successMessage: "Welcome to CDR Analyzer! Your account has been created successfully.",
+    pendingMessage: "Your registration has been submitted for admin approval. Please wait for confirmation.",
+    rejectionMessage: "Your registration request has been rejected. Please contact administrator.",
+    blockMessage: "Your account has been blocked. Please contact administrator.",
+    expiryMessage: "Your account has expired. Please contact administrator to renew access.",
+    
+    maintenanceMode: false,
+    adminEmail: "admin@cdranalyzer.com",
+    adminPassword: "admin123"
+  });
+  const { toast } = useToast();
+  const { user: currentUser, logout } = useAuth();
+  const [location, setLocation] = useLocation();
+
+  // Check if current user is admin
+  const isAdmin = currentUser?.email === 'admin@cdranalyzer.com';
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    loadUsers();
+    loadPendingUsers();
+    loadRejectedUsers();
+    loadSystemSettings();
+  }, [isAdmin]);
+
+  useEffect(() => {
+    filterUsers();
+  }, [searchTerm, users, statusFilter]);
+
+  useEffect(() => {
+    filterPendingUsers();
+  }, [pendingSearchTerm, pendingUsers]);
+
+  useEffect(() => {
+    filterRejectedUsers();
+  }, [rejectedSearchTerm, rejectedUsers]);
+
+  const loadSystemSettings = () => {
+    const defaultSettings = {
+      registrationEnabled: true,
+      requireApproval: false,
+      defaultExpiryDays: 365,
+      defaultDeviceLimit: 3,
+      
+      // Default SMS Messages
+      successMessage: "Welcome to CDR Analyzer! Your account has been created successfully.",
+      pendingMessage: "Your registration has been submitted for admin approval. Please wait for confirmation.",
+      rejectionMessage: "Your registration request has been rejected. Please contact administrator.",
+      blockMessage: "Your account has been blocked. Please contact administrator.",
+      expiryMessage: "Your account has expired. Please contact administrator to renew access.",
+      
+      maintenanceMode: false,
+      adminEmail: "admin@cdranalyzer.com",
+      adminPassword: "admin123"
+    };
+    
+    const storedSettings = localStorage.getItem('cdr_system_settings');
+    if (storedSettings) {
+      try {
+        const settings = JSON.parse(storedSettings);
+        setSystemSettings({ 
+          ...defaultSettings,
+          ...settings 
+        });
+      } catch (error) {
+        console.error('Error loading system settings:', error);
+        // If settings are corrupted, reset to defaults
+        localStorage.setItem('cdr_system_settings', JSON.stringify(defaultSettings));
+        setSystemSettings(defaultSettings);
+      }
+    } else {
+      // No settings found - set defaults
+      localStorage.setItem('cdr_system_settings', JSON.stringify(defaultSettings));
+      setSystemSettings(defaultSettings);
+    }
+  };
+
+  const saveSystemSettings = (newSettings: SystemSettings) => {
+    localStorage.setItem('cdr_system_settings', JSON.stringify(newSettings));
+    setSystemSettings(newSettings);
+    toast({
+      title: "Settings Updated",
+      description: "System settings have been saved successfully."
+    });
+  };
+
+  const loadUsers = () => {
+    const storedUsers = localStorage.getItem('cdr_users');
+    if (storedUsers) {
+      const parsedUsers = JSON.parse(storedUsers);
+      setUsers(parsedUsers.filter((user: User) => user.isApproved !== false));
+    }
+  };
+
+  const loadPendingUsers = () => {
+    const storedPendingUsers = localStorage.getItem('cdr_pending_users');
+    if (storedPendingUsers) {
+      const parsedPendingUsers = JSON.parse(storedPendingUsers);
+      setPendingUsers(parsedPendingUsers);
+    }
+  };
+
+  const loadRejectedUsers = () => {
+    const storedRejectedUsers = localStorage.getItem('cdr_rejected_users');
+    if (storedRejectedUsers) {
+      const parsedRejectedUsers = JSON.parse(storedRejectedUsers);
+      setRejectedUsers(parsedRejectedUsers);
+    }
+  };
+
+  const savePendingUsers = (updatedPendingUsers: User[]) => {
+    localStorage.setItem('cdr_pending_users', JSON.stringify(updatedPendingUsers));
+    setPendingUsers(updatedPendingUsers);
+  };
+
+  const saveUsers = (updatedUsers: User[]) => {
+    localStorage.setItem('cdr_users', JSON.stringify(updatedUsers));
+    setUsers(updatedUsers);
+  };
+
+  const filterUsers = () => {
+    let filtered = users;
+    
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(user =>
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.whatsappNumber.includes(searchTerm)
+      );
+    }
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(user => {
+        switch (statusFilter) {
+          case 'active':
+            return !user.isBlocked && (!user.expiryDate || new Date(user.expiryDate) >= new Date());
+          case 'blocked':
+            return user.isBlocked;
+          case 'expired':
+            return user.expiryDate && new Date(user.expiryDate) < new Date();
+          default:
+            return true;
+        }
+      });
+    }
+    
+    setFilteredUsers(filtered);
+  };
+
+  const filterPendingUsers = () => {
+    let filtered = pendingUsers;
+    
+    // Apply search filter
+    if (pendingSearchTerm) {
+      filtered = filtered.filter(user =>
+        user.name.toLowerCase().includes(pendingSearchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(pendingSearchTerm.toLowerCase()) ||
+        user.city.toLowerCase().includes(pendingSearchTerm.toLowerCase()) ||
+        user.whatsappNumber.includes(pendingSearchTerm)
+      );
+    }
+    
+    setFilteredPendingUsers(filtered);
+  };
+
+  const filterRejectedUsers = () => {
+    let filtered = rejectedUsers;
+    
+    // Apply search filter
+    if (rejectedSearchTerm) {
+      filtered = filtered.filter(user =>
+        user.name.toLowerCase().includes(rejectedSearchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(rejectedSearchTerm.toLowerCase()) ||
+        user.city.toLowerCase().includes(rejectedSearchTerm.toLowerCase()) ||
+        user.whatsappNumber.includes(rejectedSearchTerm)
+      );
+    }
+    
+    setFilteredRejectedUsers(filtered);
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser({ ...user });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveUser = () => {
+    if (!editingUser) return;
+
+    const updatedUsers = users.map(user =>
+      user.id === editingUser.id ? editingUser : user
+    );
+    saveUsers(updatedUsers);
+    setIsEditModalOpen(false);
+    setEditingUser(null);
+
+    toast({
+      title: "User Updated",
+      description: `${editingUser.name}'s details have been updated successfully.`
+    });
+  };
+
+  const handleToggleBlock = (userId: string) => {
+    const updatedUsers = users.map(user => {
+      if (user.id === userId) {
+        return { ...user, isBlocked: !user.isBlocked };
+      }
+      return user;
+    });
+    saveUsers(updatedUsers);
+
+    const user = users.find(u => u.id === userId);
+    toast({
+      title: user?.isBlocked ? "User Unblocked" : "User Blocked",
+      description: `${user?.name} has been ${user?.isBlocked ? 'unblocked' : 'blocked'} successfully.`
+    });
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      return;
+    }
+
+    const updatedUsers = users.filter(user => user.id !== userId);
+    saveUsers(updatedUsers);
+
+    toast({
+      title: "User Deleted",
+      description: "User has been permanently deleted.",
+      variant: "destructive"
+    });
+  };
+
+  const handleExportUsers = () => {
+    const dataStr = JSON.stringify(users, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `cdr_users_export_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export Complete",
+      description: `${users.length} users exported successfully.`
+    });
+  };
+
+  const handleApproveUser = (userId: string) => {
+    const userToApprove = pendingUsers.find(u => u.id === userId);
+    if (!userToApprove) return;
+
+    // Set default settings for approved user
+    let defaultExpiryDate = null;
+    if (systemSettings.defaultExpiryDays > 0) {
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + systemSettings.defaultExpiryDays);
+      defaultExpiryDate = expiryDate.toISOString();
+    }
+
+    const approvedUser: User = {
+      ...userToApprove,
+      isApproved: true,
+      approvedAt: new Date().toISOString(),
+      approvedBy: currentUser?.email || 'admin',
+      ...(defaultExpiryDate && { expiryDate: defaultExpiryDate }),
+      deviceLimit: systemSettings.defaultDeviceLimit,
+      isBlocked: false
+    };
+
+    // Add to approved users
+    const currentUsers = users;
+    const updatedUsers = [...currentUsers, approvedUser];
+    saveUsers(updatedUsers);
+
+    // Remove from pending users
+    const updatedPendingUsers = pendingUsers.filter(u => u.id !== userId);
+    savePendingUsers(updatedPendingUsers);
+
+    toast({
+      title: "User Approved",
+      description: `${userToApprove.name} has been approved and can now login.`
+    });
+  };
+
+  const handleRejectUser = (userId: string) => {
+    const userToReject = pendingUsers.find(u => u.id === userId);
+    if (!userToReject) return;
+
+    if (!confirm(`Are you sure you want to reject ${userToReject.name}'s registration request?`)) {
+      return;
+    }
+
+    // Add to rejected users list for future login blocking
+    const rejectedUsers = localStorage.getItem('cdr_rejected_users');
+    const currentRejectedUsers = rejectedUsers ? JSON.parse(rejectedUsers) : [];
+    const rejectedUser = {
+      ...userToReject,
+      rejectedAt: new Date().toISOString(),
+      rejectedBy: currentUser?.email || 'admin'
+    };
+    currentRejectedUsers.push(rejectedUser);
+    localStorage.setItem('cdr_rejected_users', JSON.stringify(currentRejectedUsers));
+
+    // Remove from pending users
+    const updatedPendingUsers = pendingUsers.filter(u => u.id !== userId);
+    savePendingUsers(updatedPendingUsers);
+
+    toast({
+      title: "User Rejected",
+      description: `${userToReject.name}'s registration request has been rejected. They will see the rejection message when trying to login.`,
+      variant: "destructive"
+    });
+  };
+
+  const handleOpenAdminCredentialsModal = () => {
+    setNewAdminEmail(systemSettings.adminEmail);
+    setNewAdminPassword("");
+    setConfirmAdminPassword("");
+    setCurrentAdminPassword("");
+    setIsAdminCredentialsModalOpen(true);
+  };
+
+  const handleSaveAdminCredentials = () => {
+    // Validate current password
+    if (currentAdminPassword !== systemSettings.adminPassword) {
+      toast({
+        title: "Invalid Password",
+        description: "Current password is incorrect.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newAdminEmail)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate new password
+    if (newAdminPassword.length < 6) {
+      toast({
+        title: "Weak Password",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate password confirmation
+    if (newAdminPassword !== confirmAdminPassword) {
+      toast({
+        title: "Password Mismatch",
+        description: "New password and confirmation do not match.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Update admin credentials
+    const updatedSettings = {
+      ...systemSettings,
+      adminEmail: newAdminEmail,
+      adminPassword: newAdminPassword
+    };
+
+    saveSystemSettings(updatedSettings);
+    setIsAdminCredentialsModalOpen(false);
+
+    toast({
+      title: "Credentials Updated",
+      description: "Admin email and password have been updated successfully. Please login again with new credentials."
+    });
+
+    // Logout after credentials change for security
+    setTimeout(() => {
+      logout();
+    }, 2000);
+  };
+
+  const handleImportUsers = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedUsers = JSON.parse(e.target?.result as string);
+        if (Array.isArray(importedUsers)) {
+          saveUsers(importedUsers);
+          toast({
+            title: "Import Complete",
+            description: `${importedUsers.length} users imported successfully.`
+          });
+        } else {
+          throw new Error('Invalid file format');
+        }
+      } catch (error) {
+        toast({
+          title: "Import Failed",
+          description: "Invalid file format. Please select a valid JSON file.",
+          variant: "destructive"
+        });
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const viewUserActivity = (userId: string) => {
+    // Mock activity data for now
+    const mockActivity: UserActivity[] = [
+      {
+        id: '1',
+        userId,
+        action: 'Login',
+        timestamp: new Date().toISOString(),
+        details: 'User logged in successfully',
+        ipAddress: '192.168.1.100',
+        deviceInfo: 'Chrome Browser'
+      },
+      {
+        id: '2',
+        userId,
+        action: 'File Upload',
+        timestamp: new Date(Date.now() - 3600000).toISOString(),
+        details: 'Uploaded CDR file for analysis',
+        ipAddress: '192.168.1.100',
+        deviceInfo: 'Chrome Browser'
+      }
+    ];
+    setSelectedUserActivity(mockActivity);
+    setIsActivityModalOpen(true);
+  };
+
+  const getStatusBadge = (user: User) => {
+    if (user.isBlocked) {
+      return <Badge variant="destructive">Blocked</Badge>;
+    }
+    if (user.expiryDate && new Date(user.expiryDate) < new Date()) {
+      return <Badge variant="secondary">Expired</Badge>;
+    }
+    return <Badge variant="default">Active</Badge>;
+  };
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <Shield className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h1 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h1>
+              <p className="text-gray-600">You don't have permission to access the admin panel.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Professional Header */}
+      <div className="bg-white shadow-lg border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button 
+                variant="ghost" 
+                onClick={() => setLocation('/')}
+                className="flex items-center gap-2 text-slate-600 hover:text-slate-900"
+              >
+                <Home className="w-5 h-5" />
+                Dashboard
+              </Button>
+              <Separator orientation="vertical" className="h-6" />
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+                  <Shield className="text-white w-5 h-5" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-slate-900">Admin Control Panel</h1>
+                  <p className="text-sm text-slate-500">System Management & User Administration</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              {/* Quick Stats */}
+              <div className="hidden md:flex items-center space-x-6 mr-6">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-indigo-600">{users.length}</div>
+                  <div className="text-xs text-slate-500">Total Users</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-green-600">
+                    {users.filter(u => !u.isBlocked && (!u.expiryDate || new Date(u.expiryDate) >= new Date())).length}
+                  </div>
+                  <div className="text-xs text-slate-500">Active</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-red-600">
+                    {users.filter(u => u.isBlocked || (u.expiryDate && new Date(u.expiryDate) < new Date())).length}
+                  </div>
+                  <div className="text-xs text-slate-500">Inactive</div>
+                </div>
+              </div>
+              
+              {/* Admin Profile */}
+              <div className="flex items-center space-x-3 px-4 py-2 bg-slate-100 rounded-lg">
+                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
+                  <Shield className="text-white w-4 h-4" />
+                </div>
+                <div className="hidden md:block">
+                  <div className="text-sm font-medium text-slate-900">{currentUser?.name}</div>
+                  <div className="text-xs text-slate-500">Administrator</div>
+                </div>
+              </div>
+              
+              {/* Change Credentials Button */}
+              <Button
+                onClick={handleOpenAdminCredentialsModal}
+                variant="outline"
+                className="flex items-center gap-2 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300"
+              >
+                <Settings className="w-4 h-4" />
+                Change Credentials
+              </Button>
+              
+              {/* Logout Button */}
+              <Button
+                onClick={logout}
+                variant="outline"
+                className="flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Users
+            </TabsTrigger>
+            <TabsTrigger value="approvals" className="flex items-center gap-2">
+              <UserCheck className="h-4 w-4" />
+              Approvals
+              {pendingUsers.length > 0 && (
+                <Badge variant="destructive" className="ml-1">
+                  {pendingUsers.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Activity
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Reports
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Settings
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="users" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      User Management
+                    </CardTitle>
+                    <CardDescription>
+                      Manage user accounts, permissions, and access control
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleExportUsers} variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export
+                    </Button>
+                    <label htmlFor="import-file">
+                      <Button variant="outline" size="sm" asChild>
+                        <span className="cursor-pointer">
+                          <Upload className="h-4 w-4 mr-2" />
+                          Import
+                        </span>
+                      </Button>
+                    </label>
+                    <input
+                      id="import-file"
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportUsers}
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between items-center mb-6">
+                  <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Search users..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Total Users: {users.length}
+                  </div>
+                </div>
+
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>City</TableHead>
+                        <TableHead>WhatsApp</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Devices</TableHead>
+                        <TableHead>Expiry</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">{user.name}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.city}</TableCell>
+                          <TableCell>{user.whatsappNumber}</TableCell>
+                          <TableCell>{getStatusBadge(user)}</TableCell>
+                          <TableCell>
+                            <span className="text-sm">
+                              {user.deviceCount || 0}/{user.deviceLimit || 5}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {user.expiryDate 
+                              ? new Date(user.expiryDate).toLocaleDateString()
+                              : 'No expiry'
+                            }
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditUser(user)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleToggleBlock(user.id)}
+                                className={user.isBlocked ? "text-green-600" : "text-red-600"}
+                              >
+                                {user.isBlocked ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => viewUserActivity(user.id)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteUser(user.id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="approvals" className="space-y-6">
+            <Card className="border-gradient-to-r from-orange-200 to-amber-200">
+              <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50">
+                <CardTitle className="flex items-center gap-2 text-orange-900">
+                  <UserCheck className="h-5 w-5" />
+                  User Approval System
+                </CardTitle>
+                <CardDescription className="text-orange-700">
+                  Review and approve pending user registration requests
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 pt-6">
+                <div className="flex justify-between items-center">
+                  <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Search pending users..."
+                      value={pendingSearchTerm}
+                      onChange={(e) => setPendingSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Pending Approvals: {pendingUsers.length}
+                  </div>
+                </div>
+
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>City</TableHead>
+                        <TableHead>WhatsApp</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredPendingUsers.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">{user.name}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.city}</TableCell>
+                          <TableCell>{user.whatsappNumber}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleApproveUser(user.id)}
+                                className="text-green-600 hover:text-green-700"
+                              >
+                                <UserCheck className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRejectUser(user.id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <UserX className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="activity" className="space-y-6">
+            <Card className="border-gradient-to-r from-green-200 to-teal-200">
+              <CardHeader className="bg-gradient-to-r from-green-50 to-teal-50">
+                <CardTitle className="flex items-center gap-2 text-green-900">
+                  <Activity className="h-5 w-5" />
+                  User Activity Log
+                </CardTitle>
+                <CardDescription className="text-green-700">
+                  Monitor user actions and system events
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 pt-6">
+                <div className="flex justify-between items-center">
+                  <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Search user activity..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Total Activity: {users.length}
+                  </div>
+                </div>
+
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Action</TableHead>
+                        <TableHead>Timestamp</TableHead>
+                        <TableHead>Details</TableHead>
+                        <TableHead>IP Address</TableHead>
+                        <TableHead>Device Info</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">{user.name}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.city}</TableCell>
+                          <TableCell>{user.whatsappNumber}</TableCell>
+                          <TableCell>{getStatusBadge(user)}</TableCell>
+                          <TableCell>
+                            <span className="text-sm">
+                              {user.deviceCount || 0}/{user.deviceLimit || 5}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {user.expiryDate 
+                              ? new Date(user.expiryDate).toLocaleDateString()
+                              : 'No expiry'
+                            }
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditUser(user)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleToggleBlock(user.id)}
+                                className={user.isBlocked ? "text-green-600" : "text-red-600"}
+                              >
+                                {user.isBlocked ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => viewUserActivity(user.id)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteUser(user.id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="reports" className="space-y-6">
+            <Card className="border-gradient-to-r from-blue-200 to-cyan-200">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50">
+                <CardTitle className="flex items-center gap-2 text-blue-900">
+                  <BarChart3 className="h-5 w-5" />
+                  User Reports
+                </CardTitle>
+                <CardDescription className="text-blue-700">
+                  Generate and download user activity reports
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 pt-6">
+                <div className="flex justify-between items-center">
+                  <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Search user activity..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Total Activity: {users.length}
+                  </div>
+                </div>
+
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Action</TableHead>
+                        <TableHead>Timestamp</TableHead>
+                        <TableHead>Details</TableHead>
+                        <TableHead>IP Address</TableHead>
+                        <TableHead>Device Info</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">{user.name}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.city}</TableCell>
+                          <TableCell>{user.whatsappNumber}</TableCell>
+                          <TableCell>{getStatusBadge(user)}</TableCell>
+                          <TableCell>
+                            <span className="text-sm">
+                              {user.deviceCount || 0}/{user.deviceLimit || 5}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {user.expiryDate 
+                              ? new Date(user.expiryDate).toLocaleDateString()
+                              : 'No expiry'
+                            }
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditUser(user)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleToggleBlock(user.id)}
+                                className={user.isBlocked ? "text-green-600" : "text-red-600"}
+                              >
+                                {user.isBlocked ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => viewUserActivity(user.id)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteUser(user.id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-6">
+            <Card className="border-gradient-to-r from-purple-200 to-violet-200">
+              <CardHeader className="bg-gradient-to-r from-purple-50 to-violet-50">
+                <CardTitle className="flex items-center gap-2 text-purple-900">
+                  <Settings className="h-5 w-5" />
+                  System Settings
+                </CardTitle>
+                <CardDescription className="text-purple-700">
+                  Configure system-wide settings and preferences
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 pt-6">
+                <div className="flex justify-between items-center">
+                  <div className="relative flex-1 max-w-sm">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Search user activity..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Total Activity: {users.length}
+                  </div>
+                </div>
+
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Action</TableHead>
+                        <TableHead>Timestamp</TableHead>
+                        <TableHead>Details</TableHead>
+                        <TableHead>IP Address</TableHead>
+                        <TableHead>Device Info</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">{user.name}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.city}</TableCell>
+                          <TableCell>{user.whatsappNumber}</TableCell>
+                          <TableCell>{getStatusBadge(user)}</TableCell>
+                          <TableCell>
+                            <span className="text-sm">
+                              {user.deviceCount || 0}/{user.deviceLimit || 5}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {user.expiryDate 
+                              ? new Date(user.expiryDate).toLocaleDateString()
+                              : 'No expiry'
+                            }
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditUser(user)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleToggleBlock(user.id)}
+                                className={user.isBlocked ? "text-green-600" : "text-red-600"}
+                              >
+                                {user.isBlocked ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => viewUserActivity(user.id)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteUser(user.id)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">156</div>
+                        <div className="text-sm text-gray-600">Total Users</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">1,247</div>
+                        <div className="text-sm text-gray-600">Total Logins</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-purple-600">89</div>
+                        <div className="text-sm text-gray-600">Files Analyzed</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-orange-600">423</div>
+                        <div className="text-sm text-gray-600">Active Devices</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-6">
+            <RegistrationSystem />
+          </TabsContent>
+        </Tabs>
+      </div>
+                    </div>
+                    
+                    {/* Registration Status Messages */}
+                    <div className="space-y-3">
+                      <Label className="font-medium text-gray-900 flex items-center gap-2">
+                        <UserCheck className="w-4 h-4 text-green-600" />
+                        Registration Success Message
+                      </Label>
+                      <Textarea
+                        value={systemSettings.successMessage}
+                        onChange={(e) => 
+                          setSystemSettings({...systemSettings, successMessage: e.target.value})
+                        }
+                        placeholder="Enter message for successful registration..."
+                        className="min-h-20 border-green-200 focus:border-green-400"
+                      />
+                      <p className="text-sm text-gray-600">Shown when user registration is successful and auto-approved</p>
+                    </div>
+                    
+                    {/* Pending Message */}
+                    <div className="space-y-3">
+                      <Label className="font-medium text-gray-900 flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-yellow-600" />
+                        Pending Approval Message
+                      </Label>
+                      <Textarea
+                        value={systemSettings.pendingMessage}
+                        onChange={(e) => 
+                          setSystemSettings({...systemSettings, pendingMessage: e.target.value})
+                        }
+                        placeholder="Enter message for pending registration..."
+                        className="min-h-20 border-yellow-200 focus:border-yellow-400"
+                      />
+                      <p className="text-sm text-gray-600">Shown when registration requires admin approval</p>
+                    </div>
+                    
+                    {/* Rejection Message */}
+                    <div className="space-y-3">
+                      <Label className="font-medium text-gray-900 flex items-center gap-2">
+                        <UserX className="w-4 h-4 text-red-600" />
+                        Registration Rejected Message
+                      </Label>
+                      <Textarea
+                        value={systemSettings.rejectionMessage}
+                        onChange={(e) => 
+                          setSystemSettings({...systemSettings, rejectionMessage: e.target.value})
+                        }
+                        placeholder="Enter message for rejected registration..."
+                        className="min-h-20 border-red-200 focus:border-red-400"
+                      />
+                      <p className="text-sm text-gray-600">Shown to users whose registration was rejected</p>
+                    </div>
+                    
+                    {/* Block Message */}
+                    <div className="space-y-3">
+                      <Label className="font-medium text-gray-900 flex items-center gap-2">
+                        <ShieldOff className="w-4 h-4 text-red-600" />
+                        Account Blocked Message
+                      </Label>
+                      <Textarea
+                        value={systemSettings.blockMessage}
+                        onChange={(e) => 
+                          setSystemSettings({...systemSettings, blockMessage: e.target.value})
+                        }
+                        placeholder="Enter message for blocked accounts..."
+                        className="min-h-20 border-red-200 focus:border-red-400"
+                      />
+                      <p className="text-sm text-gray-600">Shown to users with blocked accounts</p>
+                    </div>
+                    
+                    {/* Expiry Message */}
+                    <div className="space-y-3">
+                      <Label className="font-medium text-gray-900 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-orange-600" />
+                        Account Expired Message
+                      </Label>
+                      <Textarea
+                        value={systemSettings.expiryMessage}
+                        onChange={(e) => 
+                          setSystemSettings({...systemSettings, expiryMessage: e.target.value})
+                        }
+                        placeholder="Enter message for expired accounts..."
+                        className="min-h-20 border-orange-200 focus:border-orange-400"
+                      />
+                      <p className="text-sm text-gray-600">Shown to users with expired accounts</p>
+                    </div>
+                    
+                    {/* Message Preview */}
+                    <div className="bg-gradient-to-br from-gray-50 to-slate-50 border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                        <Eye className="w-4 h-4" />
+                        Message Preview
+                      </h4>
+                      <div className="space-y-3">
+                        <div className="bg-green-50 border border-green-200 rounded p-3">
+                          <div className="text-xs font-medium text-green-800 mb-1">SUCCESS MESSAGE:</div>
+                          <div className="text-sm text-green-700">{systemSettings.successMessage}</div>
+                        </div>
+                        <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                          <div className="text-xs font-medium text-yellow-800 mb-1">PENDING MESSAGE:</div>
+                          <div className="text-sm text-yellow-700">{systemSettings.pendingMessage}</div>
+                        </div>
+                        <div className="bg-red-50 border border-red-200 rounded p-3">
+                          <div className="text-xs font-medium text-red-800 mb-1">REJECTION MESSAGE:</div>
+                          <div className="text-sm text-red-700">{systemSettings.rejectionMessage}</div>
+                        </div>
+                        <div className="bg-red-50 border border-red-300 rounded p-3">
+                          <div className="text-xs font-medium text-red-900 mb-1">BLOCKED MESSAGE:</div>
+                          <div className="text-sm text-red-800">{systemSettings.blockMessage}</div>
+                        </div>
+                        <div className="bg-orange-50 border border-orange-200 rounded p-3">
+                          <div className="text-xs font-medium text-orange-800 mb-1">EXPIRED MESSAGE:</div>
+                          <div className="text-sm text-orange-700">{systemSettings.expiryMessage}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* System Maintenance */}
+              <Card className="border-gradient-to-r from-emerald-200 to-green-200">
+                <CardHeader className="bg-gradient-to-r from-emerald-50 to-green-50">
+                  <CardTitle className="flex items-center gap-2 text-emerald-900">
+                    <Sliders className="h-5 w-5" />
+                    System Maintenance & Controls
+                  </CardTitle>
+                  <CardDescription className="text-emerald-700">
+                    Advanced system settings and maintenance options
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6 pt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                        <Bell className="w-4 h-4" />
+                        System Controls
+                      </h4>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between p-3 bg-white rounded border border-gray-200">
+                          <div>
+                            <Label className="font-medium text-gray-900">Maintenance Mode</Label>
+                            <p className="text-sm text-gray-600">Disable system for maintenance</p>
+                          </div>
+                          <Switch
+                            checked={systemSettings.maintenanceMode}
+                            onCheckedChange={(checked) => 
+                              setSystemSettings({...systemSettings, maintenanceMode: checked})
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <h4 className="font-medium text-gray-900">System Actions</h4>
+                      <div className="space-y-2">
+                        <Button variant="outline" className="w-full justify-start">
+                          <Download className="w-4 h-4 mr-2" />
+                          Export System Settings
+                        </Button>
+                        <Button variant="outline" className="w-full justify-start">
+                          <Upload className="w-4 h-4 mr-2" />
+                          Import System Settings
+                        </Button>
+                        <Button variant="outline" className="w-full justify-start">
+                          <FileText className="w-4 h-4 mr-2" />
+                          System Backup
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Save Settings */}
+                  <div className="border-t pt-6">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="font-medium text-gray-900">Save Configuration</h4>
+                        <p className="text-sm text-gray-600">Apply all changes to system settings</p>
+                      </div>
+                      <div className="space-x-3">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            // Clear localStorage to reset to new defaults
+                            localStorage.removeItem('cdr_system_settings');
+                            // Reload with new defaults
+                            setSystemSettings({
+                              registrationEnabled: true,
+                              requireApproval: false,
+                              defaultExpiryDays: 365,
+                              defaultDeviceLimit: 3,
+                              
+                              // Default SMS Messages
+                              successMessage: "Welcome to CDR Analyzer! Your account has been created successfully.",
+                              pendingMessage: "Your registration has been submitted for admin approval. Please wait for confirmation.",
+                              rejectionMessage: "Your registration request has been rejected. Please contact administrator.",
+                              blockMessage: "Your account has been blocked. Please contact administrator.",
+                              expiryMessage: "Your account has expired. Please contact administrator to renew access.",
+                              
+                              maintenanceMode: false,
+                              adminEmail: "admin@cdranalyzer.com",
+                              adminPassword: "admin123"
+                            });
+                            // FORCE SAVE TO LOCALSTORAGE
+                            const forcedSettings = {
+                              registrationEnabled: true,
+                              requireApproval: false,
+                              defaultExpiryDays: 365,
+                              defaultDeviceLimit: 3,
+                              
+                              // Default SMS Messages
+                              successMessage: "Welcome to CDR Analyzer! Your account has been created successfully.",
+                              pendingMessage: "Your registration has been submitted for admin approval. Please wait for confirmation.",
+                              rejectionMessage: "Your registration request has been rejected. Please contact administrator.",
+                              blockMessage: "Your account has been blocked. Please contact administrator.",
+                              expiryMessage: "Your account has expired. Please contact administrator to renew access.",
+                              
+                              maintenanceMode: false,
+                              adminEmail: "admin@cdranalyzer.com",
+                              adminPassword: "admin123"
+                            };
+                            localStorage.setItem('cdr_system_settings', JSON.stringify(forcedSettings));
+                            toast({
+                              title: "APPROVAL SYSTEM ENABLED",
+                              description: "Settings reset with registration approval REQUIRED by default."
+                            });
+                          }}
+                        >
+                          🔥 RESET & ENABLE APPROVAL
+                        </Button>
+                        <Button 
+                          className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg"
+                          onClick={() => saveSystemSettings(systemSettings)}
+                        >
+                          <Settings className="w-4 h-4 mr-2" />
+                          Save All Settings
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Edit User Modal */}
+        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>
+                Update user information and settings
+              </DialogDescription>
+            </DialogHeader>
+            {editingUser && (
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
+                    value={editingUser.name}
+                    onChange={(e) => setEditingUser({...editingUser, name: e.target.value})}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    value={editingUser.email}
+                    onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    value={editingUser.city}
+                    onChange={(e) => setEditingUser({...editingUser, city: e.target.value})}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="whatsapp">WhatsApp Number</Label>
+                  <Input
+                    id="whatsapp"
+                    value={editingUser.whatsappNumber}
+                    onChange={(e) => setEditingUser({...editingUser, whatsappNumber: e.target.value})}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="deviceLimit">Device Limit</Label>
+                  <Input
+                    id="deviceLimit"
+                    type="number"
+                    value={editingUser.deviceLimit || 5}
+                    onChange={(e) => setEditingUser({...editingUser, deviceLimit: parseInt(e.target.value) || 5})}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="expiryDate">Expiry Date</Label>
+                  <Input
+                    id="expiryDate"
+                    type="date"
+                    value={editingUser.expiryDate ? editingUser.expiryDate.split('T')[0] : ''}
+                    onChange={(e) => setEditingUser({...editingUser, expiryDate: e.target.value})}
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSaveUser}>
+                    Save Changes
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* User Activity Modal */}
+        <Dialog open={isActivityModalOpen} onOpenChange={setIsActivityModalOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>User Activity</DialogTitle>
+              <DialogDescription>
+                Recent activity and login history
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-96 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Action</TableHead>
+                    <TableHead>Details</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Device</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedUserActivity.map((activity) => (
+                    <TableRow key={activity.id}>
+                      <TableCell className="font-medium">{activity.action}</TableCell>
+                      <TableCell>{activity.details}</TableCell>
+                      <TableCell>
+                        {new Date(activity.timestamp).toLocaleString()}
+                      </TableCell>
+                      <TableCell>{activity.deviceInfo}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Admin Credentials Modal */}
+        <Dialog open={isAdminCredentialsModalOpen} onOpenChange={setIsAdminCredentialsModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Change Admin Credentials
+              </DialogTitle>
+              <DialogDescription>
+                Update your admin email and password. You will be logged out after changes.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="current-password">Current Password</Label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  placeholder="Enter your current password"
+                  value={currentAdminPassword}
+                  onChange={(e) => setCurrentAdminPassword(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="new-email">New Email Address</Label>
+                <Input
+                  id="new-email"
+                  type="email"
+                  placeholder="Enter new email address"
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  placeholder="Enter new password (min 6 characters)"
+                  value={newAdminPassword}
+                  onChange={(e) => setNewAdminPassword(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={confirmAdminPassword}
+                  onChange={(e) => setConfirmAdminPassword(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mt-2">
+                <p className="text-sm text-yellow-800">
+                  <strong>Warning:</strong> You will be automatically logged out after changing credentials. Please remember your new login details.
+                </p>
+              </div>
+              
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => setIsAdminCredentialsModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveAdminCredentials} className="bg-blue-600 hover:bg-blue-700">
+                  Update Credentials
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+}
